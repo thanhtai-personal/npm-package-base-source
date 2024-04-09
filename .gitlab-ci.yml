@@ -1,0 +1,91 @@
+image: node:18.4.0
+
+variables:
+  NODE_TLS_REJECT_UNAUTHORIZED: 0
+  PNPM_VERSION: 8.6.12
+
+stages:
+  - test
+  - build
+  - release
+  - deploy
+
+lint-check:
+  stage: test
+  interruptible: true
+  variables:
+    GIT_STRATEGY: fetch
+    GIT_CLEAN_FLAGS: none
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  tags:
+    - titan_runner
+  before_script:
+    - curl -fsSL https://get.pnpm.io/install.sh | ENV="$HOME/.bashrc" SHELL="$(which bash)" bash -
+    - source $HOME/.bashrc
+    - pnpm config set store-dir .pnpm-store
+    - pnpm install
+  script:
+    - pnpm lint --format gitlab
+  artifacts:
+    reports:
+      codequality: gl-codequality.json
+
+type-check:
+  stage: test
+  interruptible: true
+  variables:
+    GIT_STRATEGY: fetch
+    GIT_CLEAN_FLAGS: none
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  tags:
+    - titan_runner
+  before_script:
+    - curl -fsSL https://get.pnpm.io/install.sh | ENV="$HOME/.bashrc" SHELL="$(which bash)" bash -
+    - source $HOME/.bashrc
+    - pnpm config set store-dir .pnpm-store
+    - pnpm install
+  script:
+    - pnpm check
+
+build-check:
+  stage: build 
+  interruptible: true
+  variables:
+    GIT_STRATEGY: fetch
+    GIT_CLEAN_FLAGS: none 
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" 
+  tags:
+    - titan_runner
+  before_script:
+    - curl -fsSL https://get.pnpm.io/install.sh | ENV="$HOME/.bashrc" SHELL="$(which bash)" bash -
+    - source $HOME/.bashrc
+    - pnpm config set store-dir .pnpm-store
+    - pnpm install
+  script:
+    pnpm build
+
+publish:
+  stage: publish
+  variables:
+    GIT_STRATEGY: clone
+    PROJECT_ID: $PROJECT_ID
+    GITLAB_TOKEN: $GITLAB_TOKEN
+  tags:
+    - titan_runner
+  only: # only run on the following branches
+    - feat/file-management #update to main later
+    - cicd
+  before_script:
+    - curl -fsSL https://get.pnpm.io/install.sh | ENV="$HOME/.bashrc" SHELL="$(which bash)" bash -
+    - source $HOME/.bashrc
+    - pnpm config set store-dir .pnpm-store
+    - git config --global http.sslVerify "false"
+    - pnpm install
+  script:
+    - pnpm run semantic:publish
+
+
+
